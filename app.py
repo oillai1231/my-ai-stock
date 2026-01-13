@@ -85,7 +85,7 @@ def ask_gemini(ticker, data, news, asset_type):
     return response.text
 
 # --- App 介面 ---
-st.title("📈 Bruce AI Stock 投資分析")
+st.title("📈 Bruce AI 投資分析")
 
 with st.form("input_form"):
     ticker = st.text_input("輸入代號 (如 2330.TW, NVDA, GC=F)", value="2330.TW")
@@ -111,6 +111,7 @@ if submitted:
             st.markdown("---")
 
             st.markdown(analysis)
+
 
 
 
