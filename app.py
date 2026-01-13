@@ -5,7 +5,7 @@ import finnhub
 from datetime import datetime, timedelta
 
 # --- 頁面設定 ---
-st.set_page_config(page_title="AI 投資分析", layout="mobile") # layout="mobile" 讓手機版更好看
+st.set_page_config(page_title="AI 投資分析", layout="centered")
 
 # --- 讀取 API Keys (從 Streamlit Secrets) ---
 # 我們稍後會在網頁後台設定這些密碼，避免直接寫在程式碼裡
@@ -109,4 +109,5 @@ if submitted:
             col1.metric("價格", f"{data['price']:.2f} {data['currency']}")
             col2.metric("RSI 強弱", f"{data['rsi']:.2f}")
             st.markdown("---")
+
             st.markdown(analysis)
