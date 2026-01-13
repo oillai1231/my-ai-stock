@@ -5,7 +5,7 @@ import finnhub
 from datetime import datetime, timedelta
 
 # --- 頁面設定 ---
-st.set_page_config(page_title="AI 投資分析", layout="centered")
+st.set_page_config(page_title="AI 投資分析", layout="wide")
 
 # --- 讀取 API Keys (從 Streamlit Secrets) ---
 # 我們稍後會在網頁後台設定這些密碼，避免直接寫在程式碼裡
@@ -111,3 +111,4 @@ if submitted:
             st.markdown("---")
 
             st.markdown(analysis)
+
