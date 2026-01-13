@@ -66,7 +66,7 @@ def get_market_news(ticker):
         return "無法取得新聞。"
 
 def ask_gemini(ticker, data, news, asset_type):
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash')
     
     role = "華爾街經理人"
     if asset_type == "Taiwan Stock": role = "台股資深分析師 (熟悉外資與台幣匯率)"
@@ -111,4 +111,5 @@ if submitted:
             st.markdown("---")
 
             st.markdown(analysis)
+
 
