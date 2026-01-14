@@ -83,7 +83,7 @@ def get_market_news(ticker):
 
 def ask_gemini(ticker, data, news, asset_type):
     # [修改點] 改用最新的 gemini-2.5-flash
-    model = genai.GenerativeModel('gemini-3-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash')
     
     role = "華爾街經理人"
     if asset_type == "Taiwan Stock": role = "台股資深分析師 (熟悉外資與台幣匯率)"
@@ -177,4 +177,5 @@ if submitted:
             # 這裡我們手動組合成完整網址顯示出來
             st.caption("🔗 分享此分析結果：")
             st.code(f"https://你的APP網址.streamlit.app/?ticker={ticker}", language="text")
+
 
