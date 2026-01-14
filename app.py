@@ -196,7 +196,7 @@ if submitted:
                  st.metric(label="資產類別", value=asset_type)
 
             st.markdown("---")
-            st.subheader("🤖 Gemini 3 觀點")
+            st.subheader("🤖 AI 分析觀點")
             st.markdown(analysis)
             
             # 額外顯示一個分享連結按鈕 (方便手機複製)
@@ -228,6 +228,7 @@ if submitted:
 #         except Exception as e:
 #             st.error(f"查詢失敗: {e}")
 # --------------------------------
+
 
 
 
