@@ -1,3 +1,4 @@
+import streamlit.components.v1 as components
 import streamlit as st
 import yfinance as yf
 import google.generativeai as genai
@@ -146,15 +147,73 @@ ticker_clean = ticker.upper().strip()
 app_base_url = "https://my-ai-stock-sgrnyzjr6fpoqxllbz7sbu.streamlit.app"
 share_link = f"{app_base_url}/?ticker={ticker_clean}"
 
-st.markdown(
+import streamlit.components.v1 as components
+
+# ... (前面程式碼不變) ...
+
+# [修改點] 3. 分享連結：使用 HTML/JS 隱藏網址，只顯示複製按鈕
+ticker_clean = ticker.upper().strip()
+app_base_url = "https://my-ai-stock-sgrnyzjr6fpoqxllbz7sbu.streamlit.app"
+share_link = f"{app_base_url}/?ticker={ticker_clean}"
+
+# 這裡使用 HTML+JS 來製作一個「純複製按鈕」
+# 這樣就不會把長長的網址顯示在畫面上了
+components.html(
     f"""
-    <div style="background-color: #f0f2f6; padding: 12px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e0e0e0;">
-        🔗 <b>分享連結：</b> <code style="background-color: transparent; color: #ff4b4b; font-weight: bold;">{share_link}</code>
-        <br><span style="font-size: 0.8em; color: gray;">(複製上方連結即可分享目前輸入的標的)</span>
-    </div>
-    """, 
-    unsafe_allow_html=True
+    <html>
+        <body>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <button onclick="copyToClipboard()" style="
+                    background-color: white; 
+                    color: #31333F; 
+                    border: 1px solid #d6d6d8; 
+                    padding: 8px 12px; 
+                    border-radius: 4px; 
+                    cursor: pointer; 
+                    font-family: 'Source Sans Pro', sans-serif;
+                    font-size: 14px;
+                    display: flex;
+                    align-items: center;
+                    transition: all 0.2s;
+                " onmouseover="this.style.borderColor='#ff4b4b'; this.style.color='#ff4b4b'" 
+                  onmouseout="this.style.borderColor='#d6d6d8'; this.style.color='#31333F'">
+                    📋 複製分享連結
+                </button>
+                <span id="status" style="font-family: sans-serif; font-size: 12px; color: green; display: none;">
+                    ✅ 已複製！
+                </span>
+            </div>
+
+            <script>
+                function copyToClipboard() {{
+                    const str = "{share_link}";
+                    
+                    // 建立一個隱藏的 textarea 來執行複製
+                    const el = document.createElement('textarea');
+                    el.value = str;
+                    el.setAttribute('readonly', '');
+                    el.style.position = 'absolute';
+                    el.style.left = '-9999px';
+                    document.body.appendChild(el);
+                    el.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(el);
+                    
+                    // 顯示成功訊息
+                    const status = document.getElementById('status');
+                    status.style.display = 'inline';
+                    setTimeout(function() {{
+                        status.style.display = 'none';
+                    }}, 2000);
+                }}
+            </script>
+        </body>
+    </html>
+    """,
+    height=50 # 設定高度剛好容納按鈕
 )
+
+# ... (後面的 if submitted: 程式碼保持不變) ...
 
 # 4. 執行分析邏輯
 if submitted:
@@ -192,3 +251,4 @@ if submitted:
             
                 st.subheader("🤖 AI 分析觀點")
                 st.markdown(analysis)
+
