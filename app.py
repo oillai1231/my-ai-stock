@@ -5,10 +5,9 @@ import finnhub
 from datetime import datetime, timedelta
 
 # --- 頁面設定 ---
-st.set_page_config(page_title="AI 投資分析", layout="wide")
+st.set_page_config(page_title="AI 投資分析 Pro", layout="wide")
 
 # --- 讀取 API Keys (從 Streamlit Secrets) ---
-# 我們稍後會在網頁後台設定這些密碼，避免直接寫在程式碼裡
 try:
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
     FINNHUB_API_KEY = st.secrets["FINNHUB_API_KEY"]
@@ -25,18 +24,31 @@ finnhub_client = finnhub.Client(api_key=FINNHUB_API_KEY)
 def get_asset_type(ticker):
     if ticker.endswith('.TW') or ticker.endswith('.TWO'):
         return "Taiwan Stock"
-    elif ticker in ['GC=F', 'GLD', 'SI=F', 'CL=F']:
-        return "Commodity"
+    elif ticker in ['GC=F', 'GLD', 'SI=F', 'CL=F', 'BTC-USD']:
+        return "Commodity/Crypto"
     else:
         return "US Stock/Global"
 
-def get_stock_data(ticker):
+def get_realtime_data(ticker):
+    """
+    獲取即時價格、漲跌幅與 RSI
+    """
     try:
         stock = yf.Ticker(ticker)
+        
+        # 1. 獲取即時價格資訊 (盤中數據)
+        # fast_info 通常比 history 更即時且包含昨收資訊
+        price = stock.fast_info.last_price
+        prev_close = stock.fast_info.previous_close
+        
+        # 計算漲跌
+        change_amount = price - prev_close
+        change_pct = (change_amount / prev_close) * 100
+        currency = stock.info.get('currency', 'USD')
+
+        # 2. 獲取歷史數據算 RSI (不需太即時，用最近收盤價即可)
         hist = stock.history(period="3mo", auto_adjust=True)
         if hist.empty: return None, "找不到數據"
-        
-        current_price = hist['Close'].iloc[-1]
         
         # RSI 計算
         delta = hist['Close'].diff()
@@ -46,15 +58,19 @@ def get_stock_data(ticker):
         rsi = 100 - (100 / (1 + rs))
         current_rsi = rsi.iloc[-1]
         
-        currency = stock.info.get('currency', 'USD')
-        return {"price": current_price, "rsi": current_rsi, "currency": currency}, None
+        return {
+            "price": price,
+            "change_amount": change_amount,
+            "change_pct": change_pct,
+            "rsi": current_rsi,
+            "currency": currency
+        }, None
     except Exception as e:
         return None, str(e)
 
 def get_market_news(ticker):
     try:
         if ticker.endswith('.TW') or ticker == 'GC=F':
-             # 台股/黃金若無特定新聞，回傳簡短提示
              return "無特定國際新聞，請專注於技術面與宏觀經濟分析。"
         
         today = datetime.now().strftime('%Y-%m-%d')
@@ -66,36 +82,64 @@ def get_market_news(ticker):
         return "無法取得新聞。"
 
 def ask_gemini(ticker, data, news, asset_type):
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    # [修改點] 改用最新的 gemini-3-flash
+    model = genai.GenerativeModel('gemini-3-flash')
     
     role = "華爾街經理人"
     if asset_type == "Taiwan Stock": role = "台股資深分析師 (熟悉外資與台幣匯率)"
-    if asset_type == "Commodity": role = "大宗商品專家 (關注通膨與美元)"
+    if asset_type == "Commodity/Crypto": role = "大宗商品與加密貨幣專家"
 
     prompt = f"""
     你是 {role}。請用繁體中文分析 {ticker}。
-    數據：價格 {data['price']:.2f}, RSI {data['rsi']:.2f}。
-    新聞：{news}
-    請簡潔回答(手機版面閱讀)：
-    1. **趨勢**：看多/看空/盤整？
-    2. **風險**：RSI是否過熱？有何隱憂？
-    3. **建議**：買進/賣出/觀望？(附理由)
+    
+    【即時數據】
+    - 現價：{data['price']:.2f} {data['currency']}
+    - 漲跌：{data['change_amount']:.2f} ({data['change_pct']:.2f}%)
+    - RSI指標：{data['rsi']:.2f}
+    
+    【近期新聞】
+    {news}
+    
+    請以手機易讀的格式簡潔回答：
+    1. **盤勢判讀**：今日漲跌的意義？趨勢是強勢還是疲弱？
+    2. **技術風險**：RSI ({data['rsi']:.2f}) 是否過熱或背離？
+    3. **操作建議**：積極者與保守者的操作區間。
     """
     response = model.generate_content(prompt)
     return response.text
 
 # --- App 介面 ---
-st.title("📈 Bruce AI 投資分析")
 
+# [修改點] 1. 處理網址參數 (分享功能的核心)
+# 如果網址有 ?ticker=2330.TW，就抓出來當預設值，否則預設 2330.TW
+query_params = st.query_params
+default_ticker = query_params.get("ticker", "2330.TW")
+
+st.title("📈 Bruce AI 投資分析 (Pro)")
+
+# 側邊欄說明
+with st.sidebar:
+    st.write("目前使用模型：")
+    st.info("Gemini 3 Flash ⚡")
+    st.markdown("---")
+    st.write("分享功能：")
+    st.caption("分析完成後，複製瀏覽器網址即可分享當前結果給朋友。")
+
+# 輸入區塊
 with st.form("input_form"):
-    ticker = st.text_input("輸入代號 (如 2330.TW, NVDA, GC=F)", value="2330.TW")
+    ticker = st.text_input("輸入代號 (如 2330.TW, NVDA, BTC-USD)", value=default_ticker)
     submitted = st.form_submit_button("開始分析")
 
+# 邏輯處理
 if submitted:
     ticker = ticker.upper().strip()
-    with st.spinner(f"正在分析 {ticker}..."):
+    
+    # [修改點] 2. 更新網址參數，讓使用者可以複製網址分享
+    st.query_params["ticker"] = ticker
+    
+    with st.spinner(f"正在連線交易所與 AI 模型分析 {ticker}..."):
         asset_type = get_asset_type(ticker)
-        data, error = get_stock_data(ticker)
+        data, error = get_realtime_data(ticker)
         
         if error:
             st.error(f"發生錯誤: {error}")
@@ -103,15 +147,33 @@ if submitted:
             news = get_market_news(ticker)
             analysis = ask_gemini(ticker, data, news, asset_type)
             
-            # 顯示結果
-            st.markdown(f"### {ticker} 分析報告")
-            col1, col2 = st.columns(2)
-            col1.metric("價格", f"{data['price']:.2f} {data['currency']}")
-            col2.metric("RSI 強弱", f"{data['rsi']:.2f}")
+            # [修改點] 3. 顯示即時股價與漲跌幅 (使用 st.metric)
+            st.markdown(f"### {ticker} 即時看板")
+            
+            # 建立三欄資訊
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric(
+                    label="目前價格", 
+                    value=f"{data['price']:.2f} {data['currency']}",
+                    delta=f"{data['change_amount']:.2f} ({data['change_pct']:.2f}%)"
+                )
+            
+            with col2:
+                # RSI 根據數值給予簡單的顏色提示 (非標準 metric，用文字呈現)
+                rsi_val = data['rsi']
+                rsi_color = "red" if rsi_val > 70 else "green" if rsi_val < 30 else "off"
+                st.metric(label="RSI 強弱指標", value=f"{rsi_val:.2f}")
+
+            with col3:
+                 st.metric(label="資產類別", value=asset_type)
+
             st.markdown("---")
-
+            st.subheader("🤖 Gemini 3 觀點")
             st.markdown(analysis)
-
-
-
-
+            
+            # 額外顯示一個分享連結按鈕 (方便手機複製)
+            # 這裡我們手動組合成完整網址顯示出來
+            st.caption("🔗 分享此分析結果：")
+            st.code(f"https://你的APP網址.streamlit.app/?ticker={ticker}", language="text")
