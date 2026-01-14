@@ -144,12 +144,12 @@ default_ticker = query_params.get("ticker", "2330.TW")
 st.title("📈 Bruce AI 投資分析 (Pro)")
 
 # 側邊欄說明
-with st.sidebar:
-    st.write("目前使用模型：")
-    st.info("Gemini 3 Flash ⚡")
-    st.markdown("---")
-    st.write("分享功能：")
-    st.caption("分析完成後，複製瀏覽器網址即可分享當前結果給朋友。")
+# with st.sidebar:
+#     st.write("目前使用模型：")
+#     st.info("Gemini 3 Flash ⚡")
+#     st.markdown("---")
+#     st.write("分享功能：")
+#     st.caption("分析完成後，複製瀏覽器網址即可分享當前結果給朋友。")
 
 # 輸入區塊
 with st.form("input_form"):
@@ -228,6 +228,7 @@ if submitted:
 #         except Exception as e:
 #             st.error(f"查詢失敗: {e}")
 # --------------------------------
+
 
 
 
