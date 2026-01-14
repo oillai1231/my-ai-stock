@@ -3,11 +3,12 @@ import yfinance as yf
 import google.generativeai as genai
 import finnhub
 from datetime import datetime, timedelta
+import time
 
 # --- 頁面設定 ---
 st.set_page_config(page_title="AI 投資分析 Pro", layout="wide")
 
-# --- 讀取 API Keys (從 Streamlit Secrets) ---
+# --- 讀取 API Keys ---
 try:
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
     FINNHUB_API_KEY = st.secrets["FINNHUB_API_KEY"]
@@ -30,14 +31,11 @@ def get_asset_type(ticker):
         return "US Stock/Global"
 
 def get_realtime_data(ticker):
-    """
-    獲取即時價格、漲跌幅與 RSI
-    """
+    """獲取即時價格、漲跌幅與 RSI"""
     try:
         stock = yf.Ticker(ticker)
         
-        # 1. 獲取即時價格資訊 (盤中數據)
-        # fast_info 通常比 history 更即時且包含昨收資訊
+        # 1. 獲取即時價格資訊
         price = stock.fast_info.last_price
         prev_close = stock.fast_info.previous_close
         
@@ -46,7 +44,7 @@ def get_realtime_data(ticker):
         change_pct = (change_amount / prev_close) * 100
         currency = stock.info.get('currency', 'USD')
 
-        # 2. 獲取歷史數據算 RSI (不需太即時，用最近收盤價即可)
+        # 2. 獲取歷史數據算 RSI
         hist = stock.history(period="3mo", auto_adjust=True)
         if hist.empty: return None, "找不到數據"
         
@@ -81,12 +79,8 @@ def get_market_news(ticker):
     except:
         return "無法取得新聞。"
 
-import time
-
 def ask_gemini(ticker, data, news, asset_type):
-    # 定義我們的模型優先順序
-    # 第一順位：最強大腦 (Gemini 3 Pro Preview) - 額度少，容易爆
-    # 第二順位：速度王者 (Gemini 2.5 Flash) - 額度多，很難爆
+    # 定義模型優先順序：優先用最強的 Pro，失敗則降級用 Flash
     model_priority = [
         "models/gemini-3-pro-preview", 
         "models/gemini-2.5-flash"
@@ -113,70 +107,68 @@ def ask_gemini(ticker, data, news, asset_type):
     3. **操作建議**：積極者與保守者的操作區間。
     """
 
-    # 開始嘗試呼叫模型
+    # 嘗試呼叫模型
     for model_name in model_priority:
         try:
-            # 嘗試建立並呼叫當前模型
             model = genai.GenerativeModel(model_name)
             response = model.generate_content(prompt)
-            
-            # 如果成功，回傳結果並跳出迴圈
-            # (可以在這裡加個標記告訴使用者是用哪個模型，非必要)
             return response.text
             
         except Exception as e:
-            # 如果失敗 (例如 ResourceExhausted)，印出錯誤但不要當機
             print(f"⚠️ 模型 {model_name} 呼叫失敗: {e}")
             print("正在嘗試切換到下一個備用模型...")
-            time.sleep(1) # 稍微休息一下再試下一個
-            continue # 繼續迴圈嘗試下一個模型
+            time.sleep(1)
+            continue 
 
-    # 如果所有模型都失敗了
     return "❌ 系統忙碌中：所有 AI 模型目前皆無法回應，請稍後再試。"
 
 # --- App 介面 ---
 
-# [修改點] 1. 處理網址參數 (分享功能的核心)
-# 如果網址有 ?ticker=2330.TW，就抓出來當預設值，否則預設 2330.TW
+# 1. 處理網址參數
 query_params = st.query_params
 default_ticker = query_params.get("ticker", "2330.TW")
 
 st.title("📈 Bruce AI 投資分析 (Pro)")
 
-# 側邊欄說明
-# with st.sidebar:
-#     st.write("目前使用模型：")
-#     st.info("Gemini 3 Flash ⚡")
-#     st.markdown("---")
-#     st.write("分享功能：")
-#     st.caption("分析完成後，複製瀏覽器網址即可分享當前結果給朋友。")
-
-# 輸入區塊
+# 2. 輸入區塊 (Form)
 with st.form("input_form"):
-    ticker = st.text_input("輸入代號 (如 2330.TW, NVDA, BTC-USD)", value=default_ticker)
-    submitted = st.form_submit_button("開始分析")
+    col_input, col_btn = st.columns([3, 1])
+    
+    with col_input:
+        ticker = st.text_input("輸入代號", value=default_ticker, label_visibility="collapsed", placeholder="例如: 2330.TW")
+    
+    with col_btn:
+        submitted = st.form_submit_button("開始分析", use_container_width=True)
 
-# 邏輯處理
+# 3. [修改重點] 分享連結直接顯示在 Form 下方
+# 這樣不需要按按鈕，也不用等 AI，連結永遠會在
+ticker_clean = ticker.upper().strip()
+app_base_url = "https://my-ai-stock-sgrnyzjr6fpoqxllbz7sbu.streamlit.app"
+share_link = f"{app_base_url}/?ticker={ticker_clean}"
+
+st.markdown(
+    f"""
+    <div style="background-color: #f0f2f6; padding: 12px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e0e0e0;">
+        🔗 <b>分享連結：</b> <code style="background-color: transparent; color: #ff4b4b; font-weight: bold;">{share_link}</code>
+        <br><span style="font-size: 0.8em; color: gray;">(複製上方連結即可分享目前輸入的標的)</span>
+    </div>
+    """, 
+    unsafe_allow_html=True
+)
+
+# 4. 執行分析邏輯
 if submitted:
-    ticker = ticker.upper().strip()
+    st.query_params["ticker"] = ticker_clean
     
-    # [修改點] 2. 更新網址參數，讓使用者可以複製網址分享
-    st.query_params["ticker"] = ticker
-    
-    with st.spinner(f"正在連線交易所與 AI 模型分析 {ticker}..."):
-        asset_type = get_asset_type(ticker)
-        data, error = get_realtime_data(ticker)
+    with st.spinner(f"正在連線交易所抓取 {ticker_clean} 數據..."):
+        asset_type = get_asset_type(ticker_clean)
+        data, error = get_realtime_data(ticker_clean)
         
         if error:
             st.error(f"發生錯誤: {error}")
         else:
-            news = get_market_news(ticker)
-            analysis = ask_gemini(ticker, data, news, asset_type)
-            
-            # [修改點] 3. 顯示即時股價與漲跌幅 (使用 st.metric)
-            st.markdown(f"### {ticker} 即時看板")
-            
-            # 建立三欄資訊
+            # 顯示即時看板
+            st.markdown(f"### {ticker_clean} 即時看板")
             col1, col2, col3 = st.columns(3)
             
             with col1:
@@ -185,55 +177,13 @@ if submitted:
                     value=f"{data['price']:.2f} {data['currency']}",
                     delta=f"{data['change_amount']:.2f} ({data['change_pct']:.2f}%)"
                 )
-            
             with col2:
-                # RSI 根據數值給予簡單的顏色提示 (非標準 metric，用文字呈現)
                 rsi_val = data['rsi']
-                rsi_color = "red" if rsi_val > 70 else "green" if rsi_val < 30 else "off"
-                st.metric(label="RSI 強弱指標", value=f"{rsi_val:.2f}")
-
+                st.metric(label="RSI 強弱", value=f"{rsi_val:.2f}")
             with col3:
                  st.metric(label="資產類別", value=asset_type)
 
             st.markdown("---")
-            st.subheader("🤖 AI 分析觀點")
-            st.markdown(analysis)
-            
-            # 額外顯示一個分享連結按鈕 (方便手機複製)
-            # 這裡我們手動組合成完整網址顯示出來
 
-            st.markdown("---")
-            st.caption("🔗 分享此分析結果：")
-            
-            # [修改點] 請將下方的網址換成您瀏覽器上方真正的 App 網址
-            # 例如改成: "https://my-ai-stock-sgrnyzjr6fpoqxllbz7sbu.streamlit.app/"
-            app_base_url = "https://my-ai-stock-sgrnyzjr6fpoqxllbz7sbu.streamlit.app" 
-            
-            # 組合完整的分享連結
-            share_link = f"{app_base_url}/?ticker={ticker}"
-            
-            st.code(share_link, language="text")
-
-# --- 暫時加入這段來檢查可用模型 ---
-# with st.expander("🛠️ 開發者工具：檢查可用模型"):
-#     if st.button("列出所有 Gemini 模型"):
-#         try:
-#             st.write("正在查詢 API 權限...")
-#             models = []
-#             for m in genai.list_models():
-#                 if 'generateContent' in m.supported_generation_methods:
-#                     models.append(m.name)
-#             st.write("您的 API Key 可用的模型如下：")
-#             st.json(models) # 會以列表清楚顯示
-#         except Exception as e:
-#             st.error(f"查詢失敗: {e}")
-# --------------------------------
-
-
-
-
-
-
-
-
-
+            # 呼叫 AI
+            with st.spinner(
