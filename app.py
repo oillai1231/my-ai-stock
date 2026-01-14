@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components  # [新增] 為了執行複製功能的 JavaScript
 import yfinance as yf
 import google.generativeai as genai
 import finnhub
@@ -140,20 +141,68 @@ with st.form("input_form"):
     with col_btn:
         submitted = st.form_submit_button("開始分析", use_container_width=True)
 
-# 3. [修改重點] 分享連結直接顯示在 Form 下方
-# 這樣不需要按按鈕，也不用等 AI，連結永遠會在
+# 3. [修改重點] 分享連結：使用 HTML/JS 隱藏網址，只顯示複製按鈕
 ticker_clean = ticker.upper().strip()
 app_base_url = "https://my-ai-stock-sgrnyzjr6fpoqxllbz7sbu.streamlit.app"
 share_link = f"{app_base_url}/?ticker={ticker_clean}"
 
-st.markdown(
+# 使用 components.html 插入自定義按鈕與腳本
+components.html(
     f"""
-    <div style="background-color: #f0f2f6; padding: 12px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e0e0e0;">
-        🔗 <b>分享連結：</b> <code style="background-color: transparent; color: #ff4b4b; font-weight: bold;">{share_link}</code>
-        <br><span style="font-size: 0.8em; color: gray;">(複製上方連結即可分享目前輸入的標的)</span>
-    </div>
-    """, 
-    unsafe_allow_html=True
+    <html>
+        <body>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <button onclick="copyToClipboard()" style="
+                    background-color: white; 
+                    color: #31333F; 
+                    border: 1px solid #d6d6d8; 
+                    padding: 8px 12px; 
+                    border-radius: 4px; 
+                    cursor: pointer; 
+                    font-family: 'Source Sans Pro', sans-serif;
+                    font-size: 14px;
+                    display: flex;
+                    align-items: center;
+                    transition: all 0.2s;
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                " onmouseover="this.style.borderColor='#ff4b4b'; this.style.color='#ff4b4b'" 
+                  onmouseout="this.style.borderColor='#d6d6d8'; this.style.color='#31333F'">
+                    📋 複製分享連結
+                </button>
+                <span id="status" style="font-family: sans-serif; font-size: 12px; color: green; display: none; opacity: 0; transition: opacity 0.5s;">
+                    ✅ 已複製連結！
+                </span>
+            </div>
+
+            <script>
+                function copyToClipboard() {{
+                    const str = "{share_link}";
+                    const el = document.createElement('textarea');
+                    el.value = str;
+                    el.setAttribute('readonly', '');
+                    el.style.position = 'absolute';
+                    el.style.left = '-9999px';
+                    document.body.appendChild(el);
+                    el.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(el);
+                    
+                    const status = document.getElementById('status');
+                    status.style.display = 'inline';
+                    status.style.opacity = '1';
+                    
+                    setTimeout(function() {{
+                        status.style.opacity = '0';
+                        setTimeout(function() {{
+                            status.style.display = 'none';
+                        }}, 500);
+                    }}, 2000);
+                }}
+            </script>
+        </body>
+    </html>
+    """,
+    height=50 # 設定高度剛好容納按鈕
 )
 
 # 4. 執行分析邏輯
@@ -185,7 +234,10 @@ if submitted:
 
             st.markdown("---")
 
-            # 呼叫 AI
-            st.subheader("🤖 AI 分析觀點")
-            st.markdown(analysis)
-
+            # [修正重點] 必須先呼叫 ask_gemini 取得 analysis
+            with st.spinner(f"正在閱讀新聞並進行 AI 分析..."):
+                news = get_market_news(ticker_clean)
+                analysis = ask_gemini(ticker_clean, data, news, asset_type)
+            
+                st.subheader("🤖 AI 分析觀點")
+                st.markdown(analysis)
