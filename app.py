@@ -178,4 +178,19 @@ if submitted:
             st.caption("🔗 分享此分析結果：")
             st.code(f"https://你的APP網址.streamlit.app/?ticker={ticker}", language="text")
 
+# --- 暫時加入這段來檢查可用模型 ---
+with st.expander("🛠️ 開發者工具：檢查可用模型"):
+    if st.button("列出所有 Gemini 模型"):
+        try:
+            st.write("正在查詢 API 權限...")
+            models = []
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    models.append(m.name)
+            st.write("您的 API Key 可用的模型如下：")
+            st.json(models) # 會以列表清楚顯示
+        except Exception as e:
+            st.error(f"查詢失敗: {e}")
+# --------------------------------
+
 
