@@ -201,8 +201,18 @@ if submitted:
             
             # 額外顯示一個分享連結按鈕 (方便手機複製)
             # 這裡我們手動組合成完整網址顯示出來
+
+            st.markdown("---")
             st.caption("🔗 分享此分析結果：")
-            st.code(f"https://你的APP網址.streamlit.app/?ticker={ticker}", language="text")
+            
+            # [修改點] 請將下方的網址換成您瀏覽器上方真正的 App 網址
+            # 例如改成: "https://my-ai-stock-sgrnyzjr6fpoqxllbz7sbu.streamlit.app/"
+            app_base_url = "https://my-ai-stock-sgrnyzjr6fpoqxllbz7sbu.streamlit.app" 
+            
+            # 組合完整的分享連結
+            share_link = f"{app_base_url}/?ticker={ticker}"
+            
+            st.code(share_link, language="text")
 
 # --- 暫時加入這段來檢查可用模型 ---
 with st.expander("🛠️ 開發者工具：檢查可用模型"):
@@ -218,6 +228,7 @@ with st.expander("🛠️ 開發者工具：檢查可用模型"):
         except Exception as e:
             st.error(f"查詢失敗: {e}")
 # --------------------------------
+
 
 
 
