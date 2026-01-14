@@ -84,14 +84,14 @@ def get_market_news(ticker):
 def ask_gemini(ticker, data, news, asset_type):
     # [修改] 使用清單中最強的第 3 代 Pro 模型
     # 注意：必須包含 'models/' 前綴或完整名稱，且包含 '-preview'
-    model_name = "models/gemini-3-pro-preview"
+    model_name = "gemini-3-pro-preview"
     
     try:
         model = genai.GenerativeModel(model_name)
     except Exception as e:
         # 萬一出錯，自動降級到穩定的 2.5 Flash
         print(f"切換模型失敗，降級使用 Flash: {e}")
-        model = genai.GenerativeModel("models/gemini-2.5-flash")
+        model = genai.GenerativeModel("gemini-2.5-flash")
 
     role = "華爾街經理人"
     if asset_type == "Taiwan Stock": role = "台股資深分析師 (熟悉外資與台幣匯率)"
@@ -202,6 +202,7 @@ with st.expander("🛠️ 開發者工具：檢查可用模型"):
         except Exception as e:
             st.error(f"查詢失敗: {e}")
 # --------------------------------
+
 
 
 
