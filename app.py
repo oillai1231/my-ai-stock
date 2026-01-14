@@ -186,4 +186,9 @@ if submitted:
             st.markdown("---")
 
             # 呼叫 AI
-            with st.spinner(
+            with st.spinner(f"正在閱讀新聞並進行 AI 分析..."):
+                news = get_market_news(ticker_clean)
+                analysis = ask_gemini(ticker_clean, data, news, asset_type)
+            
+                st.subheader("🤖 AI 分析觀點")
+                st.markdown(analysis)
