@@ -81,18 +81,17 @@ def get_market_news(ticker):
     except:
         return "無法取得新聞。"
 
-def ask_gemini(ticker, data, news, asset_type):
-    # [修改] 使用清單中最強的第 3 代 Pro 模型
-    # 注意：必須包含 'models/' 前綴或完整名稱，且包含 '-preview'
-    model_name = "gemini-3-pro-preview"
-    
-    try:
-        model = genai.GenerativeModel(model_name)
-    except Exception as e:
-        # 萬一出錯，自動降級到穩定的 2.5 Flash
-        print(f"切換模型失敗，降級使用 Flash: {e}")
-        model = genai.GenerativeModel("gemini-2.5-flash")
+import time
 
+def ask_gemini(ticker, data, news, asset_type):
+    # 定義我們的模型優先順序
+    # 第一順位：最強大腦 (Gemini 3 Pro Preview) - 額度少，容易爆
+    # 第二順位：速度王者 (Gemini 2.5 Flash) - 額度多，很難爆
+    model_priority = [
+        "models/gemini-3-pro-preview", 
+        "models/gemini-2.5-flash"
+    ]
+    
     role = "華爾街經理人"
     if asset_type == "Taiwan Stock": role = "台股資深分析師 (熟悉外資與台幣匯率)"
     if asset_type == "Commodity/Crypto": role = "大宗商品與加密貨幣專家"
@@ -113,10 +112,27 @@ def ask_gemini(ticker, data, news, asset_type):
     2. **技術風險**：RSI ({data['rsi']:.2f}) 是否過熱或背離？
     3. **操作建議**：積極者與保守者的操作區間。
     """
-    
-    # 呼叫 API
-    response = model.generate_content(prompt)
-    return response.text
+
+    # 開始嘗試呼叫模型
+    for model_name in model_priority:
+        try:
+            # 嘗試建立並呼叫當前模型
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(prompt)
+            
+            # 如果成功，回傳結果並跳出迴圈
+            # (可以在這裡加個標記告訴使用者是用哪個模型，非必要)
+            return response.text
+            
+        except Exception as e:
+            # 如果失敗 (例如 ResourceExhausted)，印出錯誤但不要當機
+            print(f"⚠️ 模型 {model_name} 呼叫失敗: {e}")
+            print("正在嘗試切換到下一個備用模型...")
+            time.sleep(1) # 稍微休息一下再試下一個
+            continue # 繼續迴圈嘗試下一個模型
+
+    # 如果所有模型都失敗了
+    return "❌ 系統忙碌中：所有 AI 模型目前皆無法回應，請稍後再試。"
 
 # --- App 介面 ---
 
@@ -202,6 +218,7 @@ with st.expander("🛠️ 開發者工具：檢查可用模型"):
         except Exception as e:
             st.error(f"查詢失敗: {e}")
 # --------------------------------
+
 
 
 
