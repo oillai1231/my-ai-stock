@@ -186,4 +186,6 @@ if submitted:
             st.markdown("---")
 
             # 呼叫 AI
-            with st.spinner(
+            st.subheader("🤖 AI 分析觀點")
+            st.markdown(analysis)
+
