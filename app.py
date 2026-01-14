@@ -131,12 +131,33 @@ default_ticker = query_params.get("ticker", "2330.TW")
 
 st.title("📈 Bruce AI 投資分析 (Pro)")
 
+# [新增] 這裡補上操作說明，讓使用者知道可以查什麼
+st.markdown("""
+    <style>
+    .stAlert { padding-top: 10px; padding-bottom: 10px; }
+    </style>
+    """, unsafe_allow_html=True)
+
+st.info("""
+    💡 **支援格式說明：**
+    - **台股**：請輸入代號 + .TW (例如 `2330.TW`, `0050.TW`)
+    - **美股**：請輸入代號 (例如 `NVDA`, `AAPL`, `TSLA`)
+    - **加密貨幣**：請輸入代號 (例如 `BTC-USD`, `ETH-USD`)
+    - **原物料**：黃金 (`GC=F`), 原油 (`CL=F`)
+""")
+
 # 2. 輸入區塊 (Form)
 with st.form("input_form"):
     col_input, col_btn = st.columns([3, 1])
     
     with col_input:
-        ticker = st.text_input("輸入代號", value=default_ticker, label_visibility="collapsed", placeholder="例如: 2330.TW")
+        # placeholder 也順便補強一下提示
+        ticker = st.text_input(
+            "輸入代號", 
+            value=default_ticker, 
+            label_visibility="collapsed", 
+            placeholder="請輸入代號，如: 2330.TW, NVDA, GC=F"
+        )
     
     with col_btn:
         submitted = st.form_submit_button("開始分析", use_container_width=True)
@@ -241,3 +262,4 @@ if submitted:
             
                 st.subheader("🤖 AI 分析觀點")
                 st.markdown(analysis)
+
