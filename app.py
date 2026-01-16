@@ -40,36 +40,40 @@ def get_asset_type(ticker):
     else:
         return "US Stock/Global"
 
+# --- 修改後的核心函數 ---
 
-@st.cache_data(ttl=600)  # 設定 10 分鐘快取，這 10 分鐘內重複查詢不會消耗請求次數
+@st.cache_data(ttl=600)  # 設定 10 分鐘快取，避免頻繁請求
 def get_realtime_data(ticker):
     """獲取即時價格、漲跌幅與 RSI"""
     try:
-        # 傳入 session 模擬瀏覽器
-        stock = yf.Ticker(ticker, session=custom_session)
+        # 直接初始化 Ticker，不要傳入 session=custom_session
+        stock = yf.Ticker(ticker)
         
-        # 1. 使用 history 代替 fast_info (fast_info 有時不穩定且更容易觸發限制)
+        # 使用 history 一次性抓取歷史數據（包含最新價）
+        # 這樣做比分開呼叫 fast_info 和 history 更省請求次數
         hist = stock.history(period="3mo", auto_adjust=True)
         
         if hist.empty: 
-            return None, "找不到數據"
+            return None, f"在 Yahoo Finance 中找不到代號: {ticker}"
         
-        # 獲取最新價格資訊
-        latest = hist.iloc[-1]
-        prev_close = hist.iloc[-2]['Close']
-        price = latest['Close']
+        # 獲取最新與前一根 K 線數據
+        latest_data = hist.iloc[-1]
+        prev_data = hist.iloc[-2]
+        
+        price = latest_data['Close']
+        prev_close = prev_data['Close']
         
         # 計算漲跌
         change_amount = price - prev_close
         change_pct = (change_amount / prev_close) * 100
         
-        # 這裡改從 stock.info 拿，若失敗則給預設值
+        # 處理幣別 (優先從 fast_info 拿，若噴錯則給預設)
         try:
-            currency = stock.info.get('currency', 'USD')
+            currency = stock.fast_info.currency
         except:
-            currency = "TWD" if ticker.endswith('.TW') else "USD"
+            currency = "TWD" if ticker.endswith('.TW') or ticker.endswith('.TWO') else "USD"
 
-        # RSI 計算
+        # RSI 計算 (使用 14 天標準窗格)
         delta = hist['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -85,7 +89,7 @@ def get_realtime_data(ticker):
             "currency": currency
         }, None
     except Exception as e:
-        return None, str(e)
+        return None, f"抓取失敗: {str(e)}"
 
 def get_market_news(ticker):
     try:
@@ -263,4 +267,5 @@ if submitted:
             
                 st.subheader("🤖 AI 分析觀點")
                 st.markdown(analysis)
+
 
