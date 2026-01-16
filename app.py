@@ -5,6 +5,15 @@ import google.generativeai as genai
 import finnhub
 from datetime import datetime, timedelta
 import time
+import requests
+
+# 在核心函數外面建立一個全域的 Session
+# 模擬瀏覽器行為，減少被封鎖機率
+custom_session = requests.Session()
+custom_session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+})
+
 
 # --- 頁面設定 ---
 st.set_page_config(page_title="AI 投資分析 Pro", layout="wide")
@@ -31,24 +40,35 @@ def get_asset_type(ticker):
     else:
         return "US Stock/Global"
 
+
+@st.cache_data(ttl=600)  # 設定 10 分鐘快取，這 10 分鐘內重複查詢不會消耗請求次數
 def get_realtime_data(ticker):
     """獲取即時價格、漲跌幅與 RSI"""
     try:
-        stock = yf.Ticker(ticker)
+        # 傳入 session 模擬瀏覽器
+        stock = yf.Ticker(ticker, session=custom_session)
         
-        # 1. 獲取即時價格資訊
-        price = stock.fast_info.last_price
-        prev_close = stock.fast_info.previous_close
+        # 1. 使用 history 代替 fast_info (fast_info 有時不穩定且更容易觸發限制)
+        hist = stock.history(period="3mo", auto_adjust=True)
+        
+        if hist.empty: 
+            return None, "找不到數據"
+        
+        # 獲取最新價格資訊
+        latest = hist.iloc[-1]
+        prev_close = hist.iloc[-2]['Close']
+        price = latest['Close']
         
         # 計算漲跌
         change_amount = price - prev_close
         change_pct = (change_amount / prev_close) * 100
-        currency = stock.info.get('currency', 'USD')
-
-        # 2. 獲取歷史數據算 RSI
-        hist = stock.history(period="3mo", auto_adjust=True)
-        if hist.empty: return None, "找不到數據"
         
+        # 這裡改從 stock.info 拿，若失敗則給預設值
+        try:
+            currency = stock.info.get('currency', 'USD')
+        except:
+            currency = "TWD" if ticker.endswith('.TW') else "USD"
+
         # RSI 計算
         delta = hist['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
@@ -243,3 +263,4 @@ if submitted:
             
                 st.subheader("🤖 AI 分析觀點")
                 st.markdown(analysis)
+
