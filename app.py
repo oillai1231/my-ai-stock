@@ -107,7 +107,7 @@ def get_market_news(ticker):
 def ask_gemini(ticker, data, news, asset_type):
     # 定義模型優先順序：優先用最強的 Pro，失敗則降級用 Flash
     model_priority = [
-        "models/gemini-3-pro-preview", 
+        "models/gemini-3.1-pro-preview", 
         "models/gemini-2.5-flash"
     ]
     
@@ -267,5 +267,6 @@ if submitted:
             
                 st.subheader("🤖 AI 分析觀點")
                 st.markdown(analysis)
+
 
 
